@@ -1727,6 +1727,9 @@ pyedimax==0.2.1
 # homeassistant.components.efergy
 pyefergy==22.1.1
 
+# homeassistant.components.egps
+pyegps==0.1.4
+
 # homeassistant.components.enphase_envoy
 pyenphase==1.14.3
 

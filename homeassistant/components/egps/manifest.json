@@ -1,0 +1,19 @@
+{
+  "domain": "egps",
+  "name": "Energenie Power Strip",
+  "codeowners": ["@gnumpi"],
+  "config_flow": true,
+  "dependencies": ["usb"],
+  "documentation": "https://www.home-assistant.io/integrations/hue",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/gnumpi/pyegps/issues",
+  "loggers": ["pyegps"],
+  "requirements": ["pyegps==0.1.4"],
+  "usb": [
+    {
+      "vid": "04B4",
+      "pid": "FD15"
+    }
+  ]
+}

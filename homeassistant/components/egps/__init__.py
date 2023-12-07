@@ -6,9 +6,6 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_DEVICE_API_ID, DOMAIN
 
-pyegps.use_dummy_devices()
-
-
 PLATFORMS: list[str] = ["switch"]
 
 

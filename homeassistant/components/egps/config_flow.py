@@ -27,8 +27,8 @@ class ConfigFLow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initiate user flow."""
 
         if user_input is not None:
-            if "device-id" in user_input:
-                mObj = re.search(r"\((.*?)\)", user_input["device-id"])
+            if CONF_DEVICE_API_ID in user_input:
+                mObj = re.search(r"\((.*?)\)", user_input[CONF_DEVICE_API_ID])
                 if mObj is None:
                     return self.async_abort(reason="incompatible-device-id")
 
@@ -53,7 +53,7 @@ class ConfigFLow(config_entries.ConfigFlow, domain=DOMAIN):
         ]
         if len(devices) > 0:
             data_schema = {
-                "device-id": selector(
+                CONF_DEVICE_API_ID: selector(
                     {
                         "select": {
                             "options": [f"{d.name} ({d.device_id})" for d in devices],

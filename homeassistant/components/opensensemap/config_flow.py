@@ -21,7 +21,6 @@ class OpenSenseMapConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize flow."""
         self._station_id: str | None = None
-        self._station_name: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None, error: str | None = None
@@ -54,7 +53,5 @@ class OpenSenseMapConfigFlowHandler(ConfigFlow, domain=DOMAIN):
         if (name := station_api.data.get("name", None)) is None:
             return await self.async_step_user(user_input=None, error="wrong_id")
 
-        self._station_name = name
         config_data = {CONF_STATION_ID: self._station_id}
-
         return self.async_create_entry(title=name, data=config_data)

@@ -29,7 +29,7 @@ class OpenSenseMapConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             self._station_id = user_input[CONF_STATION_ID]
-            return await self._async_try_fetch_station_info()
+            return await self._async_check_and_create_on_success()
 
         errors = {}
         if error is not None:
@@ -41,7 +41,7 @@ class OpenSenseMapConfigFlowHandler(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_STATION_ID): cv.string}),
         )
 
-    async def _async_try_fetch_station_info(self) -> FlowResult:
+    async def _async_check_and_create_on_success(self) -> FlowResult:
         """Try to fetch station info and return any errors."""
         station_api = OpenSenseMap(self._station_id, async_get_clientsession(self.hass))
         try:
@@ -52,6 +52,9 @@ class OpenSenseMapConfigFlowHandler(ConfigFlow, domain=DOMAIN):
 
         if (name := station_api.data.get("name", None)) is None:
             return await self.async_step_user(user_input=None, error="wrong_id")
+
+        await self.async_set_unique_id(self._station_id)
+        self._abort_if_unique_id_configured()
 
         config_data = {CONF_STATION_ID: self._station_id}
         return self.async_create_entry(title=name, data=config_data)

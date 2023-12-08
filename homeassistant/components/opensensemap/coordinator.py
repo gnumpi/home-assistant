@@ -1,14 +1,31 @@
 """Accessing OpenSenseMapApi."""
-
-from datetime import timedelta
+from datetime import datetime, timedelta
+from typing import Any, NamedTuple
 
 from opensensemap_api import _TITLES, OpenSenseMap
 from opensensemap_api.exceptions import OpenSenseMapError
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import LOGGER, SensorId
+from .const import LOGGER, SensorTypeId
+
+
+class SensorDescr(NamedTuple):
+    """NamedTuple for describing each reported sensor."""
+
+    title: str
+    sensor_type: SensorTypeId
+    unit: str
+    sensor_hw: str | None
+
+
+class SensorVal(NamedTuple):
+    """NamedTuple for storing received sensor valus."""
+
+    value: str
+    at: datetime
 
 
 class OpenSenseMapDataUpdateCoordinator(DataUpdateCoordinator):
@@ -25,24 +42,58 @@ class OpenSenseMapDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=10),
         )
         self.station_api = station_api
-        self._sensor_ids: list[SensorId] | None = None
+        self._sensors: dict[str, SensorDescr] | None = None
+
         self.units: dict[str, str] = {}
+        self._last_update: datetime | None = None
+        self._exposure: str | None = None
+        self._longitude: float | None = None
+        self._latitude: float | None = None
 
-    async def receive_station_sensor_ids(self) -> list[SensorId]:
-        """Fetch data an return which sensors are available."""
-        if self._sensor_ids is None:
-            try:
-                await self.station_api.get_data()
-            except OpenSenseMapError as err:
-                LOGGER.error("Unable to fetch data: %s", err)
-                raise UpdateFailed from err
+    @property
+    def sensors(self) -> dict[str, SensorDescr]:
+        """Return the sensor description list."""
+        if self._sensors is None:
+            raise PlatformNotReady("Coordinator accessed before the first data fetch.")
+        return self._sensors
 
-            self._sensor_ids = [
-                sId
-                for sId in SensorId
-                if self.station_api.get_value(sId.value) is not None
-            ]
-        return self._sensor_ids
+    def get_sensor_descr(self, sensor_id: str) -> SensorDescr:
+        """Return the description for the given sensor id."""
+        if self._sensors is None:
+            raise PlatformNotReady("Coordinator accessed before the first data fetch.")
+        return self._sensors[sensor_id]
+
+    def init_coordinator_data(self, data: dict[str, Any]) -> None:
+        """Initiate coordinator with received data."""
+
+        self.name = data.get("name", None)
+
+        self._exposure = data.get("exporsure", None)
+        if (location := data.get("currentLocation", None)) is not None:
+            self._longitude = location.get("coordinates")[0]
+            self._latitude = location.get("coordinates")[1]
+
+        knownTitlesForSensor = {
+            sId: _TITLES.get(sId.value, ()) + (sId.value,) for sId in SensorTypeId
+        }
+
+        self._sensors = {
+            s["_id"]: SensorDescr(
+                title=s["title"],
+                sensor_type=foundIds[0],
+                unit=s["unit"],
+                sensor_hw=s.get("sensorType", None),
+            )
+            for s in data["sensors"]
+            if len(
+                foundIds := [
+                    sId
+                    for sId in SensorTypeId
+                    if s["title"] in knownTitlesForSensor[sId]
+                ]
+            )
+            > 0
+        }
 
     async def _async_update_data(self):
         """Fetch data from API endpoint.
@@ -58,18 +109,19 @@ class OpenSenseMapDataUpdateCoordinator(DataUpdateCoordinator):
             LOGGER.error("Unable to fetch data: %s", err)
             raise UpdateFailed from err
 
-        if (name := self.station_api.name) is not None:
-            self.name = name
+        data = self.station_api.data
+        if self._sensors is None:
+            try:
+                self.init_coordinator_data(data)
+            except Exception as err:
+                raise UpdateFailed from err
 
-        self.units = {
-            sId.value: entry["unit"]
-            for sId in SensorId
-            for entry in self.station_api.data["sensors"]
-            if entry["title"] in _TITLES.get(sId.value, ()) + (sId.value,)
-        }
+        self._last_update = datetime.fromisoformat(data.get("updatedAt", None))
 
         return {
-            sId.value: measure
-            for sId in SensorId
-            if (measure := self.station_api.get_value(sId.value)) is not None
+            s["_id"]: SensorVal(
+                value=s["lastMeasurement"]["value"],
+                at=datetime.fromisoformat(s["lastMeasurement"]["createdAt"]),
+            )
+            for s in data["sensors"]
         }

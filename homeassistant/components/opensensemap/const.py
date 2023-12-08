@@ -16,7 +16,7 @@ DOMAIN = "opensensemap"
 PLATFORMS = [Platform.SENSOR]
 
 
-class SensorId(StrEnum):
+class SensorTypeId(StrEnum):
     """Sensors as defined in opensensemap-api."""
 
     PM25 = "PM2.5"

@@ -11,17 +11,17 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_STATION_ID, DOMAIN, SensorId
+from .const import CONF_STATION_ID, DOMAIN, SensorTypeId
 from .coordinator import OpenSenseMapDataUpdateCoordinator
 
 DEVICE_CLASS_MAPPING = {
-    SensorId.PM25: SensorDeviceClass.PM25,
-    SensorId.PM10: SensorDeviceClass.PM10,
-    SensorId.TEMPERATURE: SensorDeviceClass.TEMPERATURE,
-    SensorId.HUMIDITY: SensorDeviceClass.HUMIDITY,
+    SensorTypeId.PM25: SensorDeviceClass.PM25,
+    SensorTypeId.PM10: SensorDeviceClass.PM10,
+    SensorTypeId.TEMPERATURE: SensorDeviceClass.TEMPERATURE,
+    SensorTypeId.HUMIDITY: SensorDeviceClass.HUMIDITY,
     # SENSOR_ID_VCC: SensorDeviceClass.VCC, # check what is correct here
-    SensorId.PRESSURE: SensorDeviceClass.ATMOSPHERIC_PRESSURE,
-    SensorId.ILLUMINANCE: SensorDeviceClass.ILLUMINANCE,
+    SensorTypeId.PRESSURE: SensorDeviceClass.ATMOSPHERIC_PRESSURE,
+    SensorTypeId.ILLUMINANCE: SensorDeviceClass.ILLUMINANCE,
     # SENSOR_ID_UV: SensorDeviceClass.UV, # not present in HA
     # SENSOR_ID_RADIOACT:
 }
@@ -38,7 +38,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             OpenSenseMapSensor(coordinator, entry, sensor_id)
-            for sensor_id in await coordinator.receive_station_sensor_ids()
+            for sensor_id in coordinator.sensors
         ],
     )
 
@@ -58,28 +58,29 @@ class OpenSenseMapSensor(
         self,
         coordinator: OpenSenseMapDataUpdateCoordinator,
         config_entry: ConfigEntry,
-        sensor_id: SensorId,
+        sensor_id: str,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._config_entry = config_entry
         self._station_id: str = config_entry.data[CONF_STATION_ID]
         self._sensor_id = sensor_id
+        self._descr = coordinator.get_sensor_descr(sensor_id)
 
     @property
     def unique_id(self) -> str:
         """Return a unique id for the sensor."""
-        return self._station_id + "_" + self._sensor_id
+        return self._sensor_id
 
     @property
     def name(self) -> str:
         """Return a sensor name."""
-        return self._sensor_id
+        return self._descr.title
 
     @property
     def device_class(self) -> SensorDeviceClass:
         """Return the sensors device class."""
-        return DEVICE_CLASS_MAPPING[self._sensor_id]
+        return DEVICE_CLASS_MAPPING[self._descr.sensor_type]
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -103,12 +104,12 @@ class OpenSenseMapSensor(
     @property
     def native_value(self) -> float | None:
         """Return the sensor value."""
-        return self.coordinator.data[self._sensor_id]
+        return self.coordinator.data[self._sensor_id].value
 
     @property
     def native_unit_of_measurement(self) -> str:
         """Return the unit of the native value."""
-        return self.coordinator.units[self._sensor_id]
+        return self._descr.unit
 
     @callback
     def _handle_coordinator_update(self) -> None:

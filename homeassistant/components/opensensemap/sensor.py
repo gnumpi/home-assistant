@@ -48,6 +48,10 @@ class OpenSenseMapSensor(
 ):
     """OpenSenseMap Sensor."""
 
+    _attr_attribution = (
+        "Information provided by the openSenseMap (https://opensensemap.org/)"
+    )
+    _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(
@@ -61,12 +65,16 @@ class OpenSenseMapSensor(
         self._config_entry = config_entry
         self._station_id: str = config_entry.data[CONF_STATION_ID]
         self._sensor_id = sensor_id
-        self._curr_value: float | None = None
 
     @property
     def unique_id(self) -> str:
         """Return a unique id for the sensor."""
         return self._station_id + "_" + self._sensor_id
+
+    @property
+    def name(self) -> str:
+        """Return a sensor name."""
+        return self._sensor_id
 
     @property
     def device_class(self) -> SensorDeviceClass:
@@ -82,19 +90,27 @@ class OpenSenseMapSensor(
                 (DOMAIN, f"{self._config_entry.entry_id}")
             },
             name=self.coordinator.name,
+            model=self.coordinator.name,
             manufacturer="opensensemap.org",
             entry_type=DeviceEntryType.SERVICE,
         )
+
+    @property
+    def attribution(self) -> str:
+        """Return link to source as attribution."""
+        return f"https://opensensemap.org/explore/{self._station_id}"
 
     @property
     def native_value(self) -> float | None:
         """Return the sensor value."""
         return self.coordinator.data[self._sensor_id]
 
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return the unit of the native value."""
+        return self.coordinator.units[self._sensor_id]
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        if self._sensor_id not in self.coordinator.data:
-            return
-        self._curr_value = self.coordinator.data[self._sensor_id]
         self.async_write_ha_state()

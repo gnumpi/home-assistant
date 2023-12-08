@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from opensensemap_api import OpenSenseMap
+from opensensemap_api import _TITLES, OpenSenseMap
 from opensensemap_api.exceptions import OpenSenseMapError
 
 from homeassistant.core import HomeAssistant
@@ -26,6 +26,7 @@ class OpenSenseMapDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.station_api = station_api
         self._sensor_ids: list[SensorId] | None = None
+        self.units: dict[str, str] = {}
 
     async def receive_station_sensor_ids(self) -> list[SensorId]:
         """Fetch data an return which sensors are available."""
@@ -56,6 +57,16 @@ class OpenSenseMapDataUpdateCoordinator(DataUpdateCoordinator):
         except OpenSenseMapError as err:
             LOGGER.error("Unable to fetch data: %s", err)
             raise UpdateFailed from err
+
+        if (name := self.station_api.name) is not None:
+            self.name = name
+
+        self.units = {
+            sId.value: entry["unit"]
+            for sId in SensorId
+            for entry in self.station_api.data["sensors"]
+            if entry["title"] in _TITLES.get(sId.value, ()) + (sId.value,)
+        }
 
         return {
             sId.value: measure
